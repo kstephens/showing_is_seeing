@@ -83,7 +83,7 @@ C.ancestors
 
 ### Methods are searched from object's class through its ancestors:
 
-def all_methods_named mod, name
+def instance_methods_for_name mod, name
   mod.
   ancestors.
   flat_map do |mod|
@@ -97,12 +97,12 @@ def all_methods_named mod, name
 end
 
 A.new.foo
-all_methods_named(A, :foo)
+instance_methods_for_name(A, :foo)
 B.new.foo
-all_methods_named(B, :foo)
+instance_methods_for_name(B, :foo)
 C.new.foo
-all_methods_named(C, :foo)
-all_methods_named(M, :foo)
+instance_methods_for_name(C, :foo)
+instance_methods_for_name(M, :foo)
 
 object = B.new
 object.foo
@@ -117,9 +117,9 @@ object.method(:foo)
 
 ### Where does object.foo come from??
 
-all_methods_named(object.class, :foo)
+instance_methods_for_name(object.class, :foo)
 
-## The eignenclass is a hidden class that contains "singleton" methods.
+## The eignenclass is a hidden class holding "singleton" methods.
 class Object
   def eigenclass
     class << self # <-- yup this is the syntax for it.
@@ -129,21 +129,21 @@ class Object
 end
 
 object.eigenclass
-object.eigenclass
 
-all_methods_named(object.eigenclass, :foo)
+instance_methods_for_name(object.eigenclass, :foo)
 
-def really_all_methods_named obj, name
-  all_methods_named(obj.eigenclass, name) + all_methods_named(obj.class, name)
+def methods_for_name obj, name
+  instance_methods_for_name(obj.eigenclass, name) +
+  instance_methods_for_name(obj.class,      name)
 end
 
-really_all_methods_named(B.new, :foo)
-really_all_methods_named(object, :foo)
+methods_for_name(B.new, :foo)
+methods_for_name(object, :foo)
 
 ### How __send__ works:
 
 def my_send obj, sel, *args
-  unbound_method = really_all_methods_named(obj, sel).first
+  unbound_method = methods_for_name(obj, sel).first
   unbound_method.bind(obj).call(*args)
 end
 

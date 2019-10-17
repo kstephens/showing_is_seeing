@@ -38,7 +38,7 @@ class ShowingIsSeeing
         o.write Rainbow(prompt).blink
         result = (t.readline rescue nil)
       ensure
-        o.write "\b \b"
+        o.write "\b#{" " * prompt.size}\b"
       end
     end if @prompting
     case result
