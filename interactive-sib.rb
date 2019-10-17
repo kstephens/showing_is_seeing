@@ -1,0 +1,111 @@
+#!/usr/bin/env ruby
+require 'shellwords'
+require 'rainbow'
+
+class ShowingIsSeeing
+  attr_reader :i, :o, :t, :files, :lines, :processed_lines
+  
+  S_SHRUG = "🤷‍"
+  S_RETURN_KEY = "\u23ce"
+
+  def initialize
+    @processed_lines = [ ]
+    @prompting = true
+  end
+
+  def tty_sane
+    system('stty sane; tput cnorm')
+  end
+
+  def no_echo
+    system('stty -echo')
+    yield
+  ensure
+    tty_sane
+  end
+
+  def no_cursor
+    system('tput civis; stty -echo')
+    yield
+  ensure
+    tty_sane
+  end
+
+  def hit_return prompt = S_RETURN_KEY
+    result = nil
+    no_cursor do
+      begin
+        o.write Rainbow(prompt).blink
+        result = (t.readline rescue nil)
+      ensure
+        o.write "\b \b"
+      end
+    end if @prompting
+    case result
+    when /G/
+      @prompting = false
+    when /p/
+      pry_in_subprocess!
+    end
+  end
+
+  def pry_in_subprocess!
+    pid = Process.fork do
+      begin
+        require 'pry'
+        script = (["class ::Object"] + processed_lines.dup + ["binding.pry; end"]) * "\n"
+        # puts script
+        Object.__send__(:eval, script)
+      rescue
+        puts $!.inspect
+      ensure
+        exit
+      end
+    end
+    Process.wait(pid)
+  end
+
+  def read_from_sib!
+    @lines = `set -x; seeing_is_believing -D 150 #{files.map(&:inspect) * ' '}`.split("\n")
+    self
+  end
+  
+  def main args
+    @files = args
+    @t = File.open("/dev/tty", "w+")
+    @i = $stdin
+    @o = $stdout
+    at_exit { tty_sane }
+
+    read_from_sib!
+
+    lines.each do | line |
+      @processed_lines << line.dup
+      case line
+      when /^#!/
+      when /^###+\s*$/
+        o.puts Rainbow(line).orange
+      when /^##/
+        o.puts Rainbow(line).orange
+        hit_return
+      when /^#/
+        o.puts Rainbow(line).orange
+      when /^((class\b|module\b|end\b|\s+).*) # =>.*/
+        o.puts $1
+      when /^(.*)(\s*# => )(.*)/
+        expr, prompt, result = $1, $2, $3
+        o.puts   Rainbow(expr).bold
+        o.write  Rainbow(prompt).blue.blink
+        hit_return S_SHRUG
+        o.write "\r"
+        o.write  Rainbow(prompt).blue
+        o.puts   Rainbow(result).green
+      else
+        o.puts line
+      end
+    end
+    self
+  end
+  
+  new.main(ARGV)
+end
