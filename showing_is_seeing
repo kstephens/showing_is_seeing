@@ -66,7 +66,9 @@ class ShowingIsSeeing
   end
 
   def read_from_sib!
-    @lines = `set -x; seeing_is_believing -D 150 #{files.map(&:inspect) * ' '}`.split("\n")
+    @tmp = ".sib.txt"
+    @tmp_debug = ".sib.debug.txt"
+    @lines = `set -xe; seeing_is_believing/bin/seeing_is_believing -D 150 #{files.map(&:inspect) * ' '} | tee #{@tmp.inspect}`.split("\n")
     self
   end
   
@@ -82,23 +84,26 @@ class ShowingIsSeeing
     lines.each do | line |
       @processed_lines << line.dup
       case line
-      when /^#!/
+      when /^#!/, /^#-/
       when /^###+\s*$/
         o.puts Rainbow(line).orange
       when /^##/
         o.puts Rainbow(line).orange
         hit_return
+      when /^(# >> )(.*)/
+        tag, output = $1, $2
+        o.puts   Rainbow(output).magenta.faint
       when /^#/
         o.puts Rainbow(line).orange
       when /^((class\b|module\b|end\b|\s+).*) # =>.*/
         o.puts $1
       when /^(.*)(\s*# => )(.*)/
-        expr, prompt, result = $1, $2, $3
+        expr, tag, result = $1, $2, $3
         o.puts   Rainbow(expr).bold
-        o.write  Rainbow(prompt).blue.blink
+        o.write  Rainbow(tag).blue.blink
         hit_return S_SHRUG
         o.write "\r"
-        o.write  Rainbow(prompt).blue
+        o.write  Rainbow(tag).blue
         o.puts   Rainbow(result).green
       else
         o.puts line
